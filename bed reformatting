@@ -38,3 +38,51 @@ write.table(GW2, "HepG2_formatted_50_XXX.bed",
             sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
 
 
+
+
+
+
+######## For T47D dataset
+
+
+#Annex: Reformatting ChIP-Atlas BED files (to 6-column schema)
+# ---------------------------------------------------------- #
+
+# -- Packages -- #
+library(dplyr)
+library(stringr)
+
+# load the original ChIP-Atlas downloaded bed file (heavy)
+GW <- read.table("T47D_formatted_50.bed", header = FALSE, sep = "\t", fill = TRUE, quote = "", comment.char="")
+# or His.Liv.05.AllAg.Hep_G2.bed or ATC.Liv.05.AllAg.Hep_G2.bed
+
+GW2 <- GW %>%
+  filter(!is.na(V2)) %>%
+  mutate(
+    # ID extraction : SRXxxxxx
+    SRX_ID = str_extract(V4, "ID=SRX[0-9]+") %>% str_remove("ID="),
+    
+    # name extraction
+    TF_NAME = str_extract(V4, "Name=[^%]+") %>% 
+      str_remove("Name=")
+  ) %>%
+  transmute(
+    V1 = V1,  
+    V2 = V2,
+    V3 = V3,
+    V4 = SRX_ID,
+    V5 = TF_NAME,
+    V6 = GW$V5[!is.na(GW$V2)]
+  )
+GW2$V6 <- GW$V5[!is.na(GW$V2)]
+
+glimpse(GW2)
+head(GW2, 3)
+col_names=c("chrom","start","end","SRX","gene","score")
+
+#export
+write.table(GW2, "T47D_formatted_50.bed", 
+            sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+
+
+
