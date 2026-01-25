@@ -14,7 +14,7 @@
 ###############################################################
 
 # ---- Inputs expected in working directory ----
-#   ENCFF389ZVZ_cCREs.bed.gz       (converted from ENCODE bigBed; see README)
+#   ENCFF389ZVZ_cCREs.bed      (converted from ENCODE bigBed; see README)
 #   HepG2_formatted_50_AllAg.bed   (TFs)
 #   HepG2_formatted_50_His.bed     (Histone marks)
 #   HepG2_formatted_50_ATAC.bed    (ATAC-seq)
@@ -22,7 +22,6 @@
 
 # NOTE:
 # Do NOT install packages inside the app once it works.
-# Keep installation in a separate setup script.
 
 suppressPackageStartupMessages({
   library(shiny)
@@ -68,11 +67,11 @@ safe_palette <- function(n){
 }
 
 # ---- Load cCREs (ROBUST: parse BED as plain text; avoids UCSC bigBed issues) ----
-load_ccres <- function(path = "ENCFF389ZVZ_cCREs.bed.gz") {
+load_ccres <- function(path = "ENCFF389ZVZ_cCREs.bed") {
   if (!file.exists(path)) {
-    stop("Missing file: ", path, "\nPlease place ENCFF389ZVZ_cCREs.bed.gz next to app.R.")
+    stop("Missing file: ", path, "\nPlease place ENCFF389ZVZ_cCREs.bed next to app.R.")
   }
-
+  
   ccre_df <- readr::read_tsv(
     path,
     col_names = FALSE,
@@ -80,18 +79,18 @@ load_ccres <- function(path = "ENCFF389ZVZ_cCREs.bed.gz") {
     show_col_types = FALSE,
     progress = FALSE
   )
-
+  
   validate_chr <- function(x) as.character(x)
   validate_int <- function(x) suppressWarnings(as.integer(x))
-
+  
   chrom <- validate_chr(ccre_df[[1]])
   start0 <- validate_int(ccre_df[[2]])
   end1   <- validate_int(ccre_df[[3]])
-
+  
   if (any(is.na(start0)) || any(is.na(end1))) {
     stop("Could not parse start/end columns from cCRE BED. Unexpected format.")
   }
-
+  
   # pick label from any column >= 4 that starts with a known cCRE class
   pick_ccre_label <- function(xrow) {
     x <- as.character(xrow)
@@ -104,22 +103,22 @@ load_ccres <- function(path = "ENCFF389ZVZ_cCREs.bed.gz") {
   } else {
     rep(NA_character_, nrow(ccre_df))
   }
-
+  
   gr <- GRanges(
     seqnames = chrom,
     ranges   = IRanges(start = start0 + 1L, end = end1)
   )
   gr$ccre <- lab
   gr$creClass <- sub(",.*", "", gr$ccre)
-
+  
   seqlevelsStyle(gr) <- "UCSC"
   genome(gr) <- "hg38"
   seqlengths(gr) <- NA
-
+  
   gr
 }
 
-ccres <- load_ccres("ENCFF389ZVZ_cCREs.bed.gz")
+ccres <- load_ccres("ENCFF389ZVZ_cCREs.bed")
 
 # ---- THEME ----
 PASTEL <- "#94d2bd"
@@ -159,7 +158,7 @@ ui <- page_navbar(
       "@media (max-width: 1200px){ .app-title{font-size:2rem;} .app-subtitle-lead{font-size:1rem;} .app-subtitle-more{font-size:.9rem;} }"
     )))
   ),
-
+  
   nav(
     "Explore",
     layout_sidebar(
@@ -183,7 +182,7 @@ ui <- page_navbar(
                  actionButton("go", "Display", class = "btn btn-primary w-100")
         )
       ),
-
+      
       card(
         class = "shadow-sm rounded-3 border-0 mb-3",
         card_body(
@@ -200,7 +199,7 @@ ui <- page_navbar(
           )
         )
       ),
-
+      
       card(
         full_screen = TRUE,
         class = "shadow-sm rounded-3 border-0 mb-3",
@@ -215,21 +214,21 @@ ui <- page_navbar(
               actionLink("toggle_note", "Note about experimental conditions", class = "link-primary"),
               uiOutput("noteBox")
           ),
-
+          
           div(class="plot-wrapper",
               plotlyOutput("plot", height = "100%"),
               div(class="plot-helper text-muted",
                   HTML("Click any point to open its SRX on <b>ChIP-Atlas</b> in a new tab.")
               )
           ),
-
+          
           div(class="hide-on-fullscreen",
               uiOutput("ccreLegend"),
               uiOutput("tfLegend")
           )
         )
       ),
-
+      
       card(
         class = "shadow-sm rounded-3 border-0",
         card_header(tags$div(class="fw-semibold", "Selected region")),
@@ -237,7 +236,7 @@ ui <- page_navbar(
       )
     )
   ),
-
+  
   nav_spacer(),
   nav_item(tags$a(class="nav-link", target="_blank",
                   href="https://github.com/JulianPrim/HEPATo", icon("github"), " GitHub"))
@@ -245,7 +244,7 @@ ui <- page_navbar(
 
 # ---- SERVER ----
 server <- function(input, output, session){
-
+  
   regionGR <- eventReactive(input$go, {
     txs <- genes(EnsDb.Hsapiens.v86, filter = GeneNameFilter(input$gene))
     validate(need(length(txs) > 0, "Gene not found"))
@@ -255,28 +254,28 @@ server <- function(input, output, session){
     seqlengths(gr) <- NA
     gr
   })
-
+  
   currentBed <- reactive({ file_for_mode(input$mode) })
-
+  
   peaksRawInRegion <- reactive({
     gr0  <- regionGR(); req(gr0)
     file <- currentBed()
     validate(need(file.exists(file), paste0("Missing file: ", file)))
-
+    
     df <- read_tsv(file,
                    col_names = c("chrom","start","end","SRX","gene","score"),
                    show_col_types = FALSE) %>%
       mutate(start = suppressWarnings(as.numeric(start)),
              end   = suppressWarnings(as.numeric(end)),
              score = suppressWarnings(as.numeric(score)))
-
+    
     validate(need(all(!is.na(df$start)) && all(!is.na(df$end)), "Peak file has non-numeric start/end"))
-
+    
     gr_df <- GRanges(df$chrom, IRanges(df$start, df$end))
     sel   <- queryHits(findOverlaps(gr_df, gr0))
     df    <- df[sel, , drop = FALSE]
     validate(need(nrow(df) > 0, "No peaks in region"))
-
+    
     df %>% mutate(
       pos     = (start + end) / 2,
       url     = paste0(SRX_URL_BASE, SRX),
@@ -289,7 +288,7 @@ server <- function(input, output, session){
       )
     )
   })
-
+  
   available_factors <- reactive({
     df <- peaksRawInRegion()
     sort(unique(df$gene))
@@ -298,7 +297,7 @@ server <- function(input, output, session){
     updateSelectizeInput(session, "filter_factor",
                          choices = available_factors(), selected = character(0), server = TRUE)
   })
-
+  
   peaksInRegion <- reactive({
     df <- peaksRawInRegion()
     if (!is.null(input$filter_factor) && length(input$filter_factor) > 0) {
@@ -306,28 +305,28 @@ server <- function(input, output, session){
     }
     dplyr::filter(df, score >= input$minscore)
   })
-
+  
   legend_colors <- reactive({
     df <- peaksInRegion()
     genes_present <- sort(unique(df$gene))
     pal <- safe_palette(length(genes_present))
     setNames(pal, genes_present)
   })
-
+  
   output$plot <- renderPlotly({
     gr <- regionGR(); req(gr)
     df <- peaksInRegion()
     validate(need(nrow(df) > 0, "No data after filtering"))
-
+    
     tf_colors <- legend_colors()
-
+    
     shapes <- NULL
     if (isTRUE(input$showccre)) {
       cc0 <- subsetByOverlaps(ccres, gr)
-
+      
       # keep only recognized classes for coloring
       cc0 <- cc0[!is.na(cc0$creClass) & cc0$creClass %in% ccre_classes]
-
+      
       if (length(cc0) > 0) {
         ccdf <- as_tibble(cc0) %>% transmute(
           x0 = start,
@@ -342,7 +341,7 @@ server <- function(input, output, session){
         })
       }
     }
-
+    
     p <- plot_ly(
       df,
       x = ~pos, y = ~score,
@@ -364,7 +363,7 @@ server <- function(input, output, session){
                       automargin = TRUE)
       ) %>%
       config(displaylogo = FALSE, responsive = TRUE)
-
+    
     htmlwidgets::onRender(p, "
       function(el, x) {
         el.on('plotly_click', function(e) {
@@ -376,29 +375,29 @@ server <- function(input, output, session){
       }
     ")
   })
-
+  
   # cCRE legend (contextual)
   ccre_help_open <- reactiveVal(FALSE)
   observeEvent(input$ccre_help_toggle, { ccre_help_open(!ccre_help_open()) })
-
+  
   output$ccreLegend <- renderUI({
     if (!isTRUE(input$showccre)) return(NULL)
     gr <- regionGR(); req(gr)
-
+    
     cc0 <- subsetByOverlaps(ccres, gr)
     cc0 <- cc0[!is.na(cc0$creClass) & cc0$creClass %in% ccre_classes]
     if (length(cc0) == 0) return(NULL)
-
+    
     present <- unique(as.character(cc0$creClass))
     present <- intersect(ccre_classes, present)
     if (length(present) == 0) return(NULL)
-
+    
     items <- lapply(present, function(cls) {
       tags$span(class = "ccre-item",
                 tags$span(class = "ccre-swatch", style = paste0("background:", ccre_cols[[cls]], ";")),
                 tags$span(cls))
     })
-
+    
     help_text <- NULL
     if (isTRUE(ccre_help_open())) {
       help_text <- tags$div(
@@ -412,7 +411,7 @@ server <- function(input, output, session){
              "<span style='color:hotpink;font-weight:600'>DNase-H3K4me3</span>.")
       )
     }
-
+    
     tags$div(
       tags$div(class = "ccre-legend",
                tags$span(class = "ccre-legend-title", "ENCODE cCRE:"),
@@ -422,13 +421,13 @@ server <- function(input, output, session){
       help_text
     )
   })
-
+  
   # Custom TF/mark legend
   output$tfLegend <- renderUI({
     if (!isTRUE(input$showlegend) || input$mode == "atac") return(NULL)
     cols <- legend_colors()
     if (length(cols) == 0) return(NULL)
-
+    
     items <- lapply(names(cols), function(name) {
       tags$div(class="tf-item",
                tags$span(class="tf-swatch", style = paste0("background:", cols[[name]], ";")),
@@ -438,7 +437,7 @@ server <- function(input, output, session){
              tags$div(class="tf-legend-title", "TF/mark legend:"),
              tags$div(class="tf-legend-grid", items))
   })
-
+  
   # HOT promoter note
   hot_open <- reactiveVal(FALSE)
   observeEvent(input$toggle_hot, { hot_open(!hot_open()) })
@@ -457,7 +456,7 @@ server <- function(input, output, session){
 </div>
 "))
   })
-
+  
   # MACS2 note
   macs_open <- reactiveVal(FALSE)
   observeEvent(input$toggle_macs, { macs_open(!macs_open()) })
@@ -475,7 +474,7 @@ server <- function(input, output, session){
 </div>
 "))
   })
-
+  
   # Experimental conditions note
   show_note <- reactiveVal(FALSE)
   observeEvent(input$toggle_note, { show_note(!show_note()) })
@@ -487,7 +486,7 @@ server <- function(input, output, session){
            copy the SRX ID of points of interest and review full metadata on <strong>ChIP-Atlas</strong>.")
     )
   })
-
+  
   output$regionInfo <- renderTable({
     gr <- regionGR(); req(gr)
     data.frame(
