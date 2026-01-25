@@ -23,8 +23,6 @@ HepG2_formatted_50_AllAg.bed, HepG2_formatted_50_His.bed, HepG2_formatted_50_ATA
 
 The script starts by installing packages. Use the viewer once (click Run App). Then, for later uses, inactivate the packages installation code block, by putting hashtags (#) in front of the lines to prevent reinstalling packages. Just press Run app again.
 
-<img width="408" height="76" alt="image" src="https://github.com/user-attachments/assets/9ca4b71c-f209-465d-9cbe-d946611a0dbf" />
-
 In case Run app fails to execute properly, you can run the script line by line from the beginning (maintain Command+Enter for mac).
 
 If you use this viewer, please read the notes of caution below.
