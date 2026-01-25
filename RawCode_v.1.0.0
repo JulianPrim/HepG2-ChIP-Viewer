@@ -23,6 +23,11 @@
 # NOTE:
 # Do NOT install packages inside the app once it works.
 
+if (!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager")
+install.packages(c("shiny","bslib","dplyr","plotly","RColorBrewer","readr","tibble","htmlwidgets"))
+BiocManager::install(c("EnsDb.Hsapiens.v86","AnnotationFilter","GenomicRanges","IRanges"), ask=FALSE)
+
+
 suppressPackageStartupMessages({
   library(shiny)
   library(bslib)
