@@ -25,7 +25,8 @@
 
 if (!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager")
 install.packages(c("shiny","bslib","dplyr","plotly","RColorBrewer","readr","tibble","htmlwidgets"))
-BiocManager::install(c("EnsDb.Hsapiens.v86","AnnotationFilter","GenomicRanges","IRanges"), ask=FALSE)
+BiocManager::install(c("AnnotationDbi","EnsDb.Hsapiens.v86","AnnotationFilter","GenomicRanges","IRanges"), ask=FALSE)
+
 
 
 suppressPackageStartupMessages({
